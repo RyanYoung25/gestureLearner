@@ -1,0 +1,17 @@
+<package>
+  <description brief="gestureLearning">
+
+     gestureLearning
+
+  </description>
+  <author>Ryan</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/gestureLearning</url>
+  <depend package="rospy"/>
+  <depend package="tf"/>
+  <depend package="maestor"/>
+
+</package>
+
+
