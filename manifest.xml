@@ -1,13 +1,13 @@
 <package>
-  <description brief="gestureLearning">
+  <description brief="gestureLearner">
 
-     gestureLearning
+     gestureLearner
 
   </description>
   <author>Ryan</author>
   <license>BSD</license>
   <review status="unreviewed" notes=""/>
-  <url>http://ros.org/wiki/gestureLearning</url>
+  <url>http://ros.org/wiki/gestureLearner</url>
   <depend package="rospy"/>
   <depend package="tf"/>
   <depend package="maestor"/>

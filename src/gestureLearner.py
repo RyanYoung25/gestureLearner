@@ -15,7 +15,7 @@ The kinect class was authored by: omangin
 
 
 import roslib
-roslib.load_manifest('gestureLearning')
+roslib.load_manifest('gestureLearner')
 import rospy
 import tf
 import signal
@@ -84,14 +84,14 @@ class Kinect:
             print "You done goofed"
 
 class GestureLearner:
-    def __init__(self, fileName=""):
+    def __init__(self, fileName="testLog.py"):
         #Wait for the service we want before we publish
         #[REB LEB RSY LSY RSR LSR RSP LSP]
         # Each of these arrays are values for each joint that it matches up with
         #Used for smoothing
         #Getting the angles and publishing to hubo
         self.kinect = Kinect()
-        self.output = open(fileName)
+        self.output = open(fileName, 'w')
 
     def setupFile(self):
         #Put in the header and any info in the output file here
@@ -118,9 +118,9 @@ class GestureLearner:
         #Parse angles
         stringNums = ""
         for angle in angles:
-            stringNums += angle + " "
+            stringNums += str(angle) + " "
 
-        del stringNums[-1]
+        stringNums = stringNums[:-1]
 
         #Write the angles to a file
         self.output.write("    robot.setProperties(\"REP LEP RSY LSY RSR LSR RSP LSP\", \"position position position position position position position position\", " + stringNums + ")")
@@ -136,7 +136,6 @@ def endDemo(signal, frame):
     continuing = False
 
 def main():
-    loadClassifier()
     signal.signal(signal.SIGINT, endDemo)
     logger = GestureLearner()
     while continuing:
