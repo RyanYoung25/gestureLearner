@@ -139,7 +139,10 @@ def main():
     signal.signal(signal.SIGINT, endDemo)
     logger = GestureLearner()
     while continuing:
-        raw_input("Press enter to record a keyframe, otherwise ctrl-c to write the script")
+        val = raw_input("Press enter to record a keyframe, otherwise q to write the script")
+        if val == "q":
+            continuing = False
+            continue
         logger.recordJointAngles()
     logger.cleanUp()
 
