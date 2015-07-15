@@ -20,7 +20,7 @@ import rospy
 import tf
 import signal
 import numpy as np
-from jsonConverter import jsonMaker
+from jsonConverter import jsonMaker, jointLineMaker
 from AngleCalculator import generateAngles
 import time
 
@@ -83,23 +83,16 @@ class Kinect:
         except (tf.Exception):
             print "You done goofed"
 
-class GestureLearner:
-    def __init__(self, fileName="testLog.py"):
+class DataRecorder:
+    def __init__(self, angleFile="angle.txt", positionFile="pos.txt"):
         #Wait for the service we want before we publish
         #[REB LEB RSY LSY RSR LSR RSP LSP]
         # Each of these arrays are values for each joint that it matches up with
         #Used for smoothing
         #Getting the angles and publishing to hubo
         self.kinect = Kinect()
-        self.output = open(fileName, 'w')
-
-    def setupFile(self):
-        #Put in the header and any info in the output file here
-        self.output.write("#!/usr/bin/env python")
-        self.output.write("from Maestor import maestor")
-        self.output.write("\n\n")
-        self.output.write("if __name__ == __main__:")
-        self.output.write("    robot = maestor()")
+        self.angles = open(angleFile, 'w')
+        self.position = open(positionFile, 'w')
     
 
     def recordJointAngles(self):
@@ -122,12 +115,16 @@ class GestureLearner:
 
         stringNums = stringNums[:-1]
 
-        #Write the angles to a file
-        self.output.write("    robot.setProperties(\"REP LEP RSY LSY RSR LSR RSP LSP\", \"position position position position position position position position\", " + stringNums + ")")
+        posString = jointLineMaker((values,))
+
+        self.angles.write(stringNums)
+        self.position.write(posString)
+
 
     def cleanUp(self):
         #Close the file 
-        self.output.close()
+        self.angles.close()
+        self.positions.close()
 
 
 
@@ -136,13 +133,10 @@ def endDemo(signal, frame):
     continuing = False
 
 def main():
+    global continuing
     signal.signal(signal.SIGINT, endDemo)
     logger = GestureLearner()
     while continuing:
-        val = raw_input("Press enter to record a keyframe, otherwise q to write the script")
-        if val == "q":
-            continuing = False
-            continue
         logger.recordJointAngles()
     logger.cleanUp()
 

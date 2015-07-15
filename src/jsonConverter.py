@@ -24,5 +24,10 @@ def jsonMaker(tup):
             ]
     }
 
-    return json.dumps(dict)    
+    return json.dumps(dict)   
+
+def jointLineMaker(tup):
+     line = ""
+     for joint in tup[0]:
+        line += " " + str(joint[1][0]) + " " + str(joint[1][1]) + " " + str(joint[1][2]) + " " + str(joint[2][0]) + " " + str(joint[2][1]) +  " " + str(joint[2][2]) +  " " + str(joint[2][3])
 
