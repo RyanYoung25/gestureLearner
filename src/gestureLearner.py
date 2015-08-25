@@ -84,7 +84,7 @@ class Kinect:
             print "You done goofed"
 
 class DataRecorder:
-    def __init__(self, angleFile="angle.txt", positionFile="pos.txt"):
+    def __init__(self, angleFile="./data/angle.txt", positionFile="./data/pos.txt", dataFile="./data/data.txt"):
         #Wait for the service we want before we publish
         #[REB LEB RSY LSY RSR LSR RSP LSP]
         # Each of these arrays are values for each joint that it matches up with
@@ -93,6 +93,7 @@ class DataRecorder:
         self.kinect = Kinect()
         self.angles = open(angleFile, 'w')
         self.position = open(positionFile, 'w')
+        self.data = open(dataFile, 'w')
     
 
     def recordJointAngles(self):
@@ -117,14 +118,16 @@ class DataRecorder:
 
         posString = jointLineMaker((values,))
 
-        self.angles.write(stringNums)
-        self.position.write(posString)
+        self.angles.write(stringNums + "\n")
+        #self.position.write(posString + "\n")
+        self.data.write(angleString + "\n")
 
 
     def cleanUp(self):
         #Close the file 
         self.angles.close()
-        self.positions.close()
+        self.position.close()
+        self.data.close()
 
 
 
@@ -135,7 +138,7 @@ def endDemo(signal, frame):
 def main():
     global continuing
     signal.signal(signal.SIGINT, endDemo)
-    logger = GestureLearner()
+    logger = DataRecorder()
     while continuing:
         logger.recordJointAngles()
     logger.cleanUp()

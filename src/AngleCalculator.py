@@ -196,6 +196,7 @@ def generateAngles(jsonString):
     frame = np.array([u, r, t])
 
 
+
     LSR, LSP = getFirstDegreeAngles(frame, LS, LE)
 
     RSR, RSP = getFirstDegreeAngles(frame, RS, RE)
@@ -204,15 +205,21 @@ def generateAngles(jsonString):
 
     REP, RSY = getSecondDegreeAngles(frame, RS, RE, RH)
 
-    return [RSP, LSP, RSR, LSR, RSY, LSY, REP, LEP]
+    #Perform offsets here. 
+
+    RSP = -1 * (RSP - 3.14)
+    LSP = -1 * LSP
+
+    RSR = -1 * RSR
+
+    REP = -1 * ((math.pi / 2.0) - REP)
+    LEP = -1 * ((math.pi / 2.0) - LEP)
+
+
+
+
+    return [REP, LEP, RSY, LSY, RSR, LSR, RSP, LSP]
  
-
-
-
-
-
-
-
 
 
 
