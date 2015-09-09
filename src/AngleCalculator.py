@@ -2,10 +2,96 @@
 
 import numpy as np
 from sklearn.decomposition import PCA
+from transformations import euler_from_quaternion
 import scipy
 import math 
 import json
 import sys
+
+class AngleMaker:
+    """An object to handle the calculation and smoothing of 
+    joint angles based off of quaternion data from the kinect sensor. 
+    The quaternion data can be fed in from a file or from a live stream and 
+    each call to the calculateEulerTheta method will return the smoothed out value. """
+    def __init__(self, angleAlphas=None):
+        '''
+        Parameterized the alpha values for the exponential moving average 
+        for each of the angles. They can be passed in at the time of object creation
+        or the default values can be used. 
+        '''
+
+        if angleAlphas != None and len(angleAlphas) == 8:
+            #Use the passed in alpha values
+            self.alphas = angleAlphas
+        else:
+            #Use the default alpha values
+            self.alphas = [.5, .5, .5, .5, .5, .5, .5, .5] 
+        
+        self.smoothed = [0, 0, 0, 0, 0, 0, 0, 0]
+
+
+    def generateEulerAngles(self, angles):
+        '''
+        BASE_FRAMES = ['/openni_depth_frame', '/left_shoulder', '/openni_depth_frame', 'right_shoulder']
+        FRAMES = [
+            'left_shoulder',
+            'left_elbow',
+            'right_shoulder',
+            'right_elbow',
+            ]
+        '''
+
+        #Get the joint list
+        #jointList
+
+        #get the joint rotations
+        LS = euler_from_quaternion(angles[0])
+        LE = euler_from_quaternion(angles[1])
+        RS = euler_from_quaternion(angles[2])
+        RE = euler_from_quaternion(angles[3])
+
+        #To figure out all of the modifications to the angles I hand tested everything. Beware when modifying
+
+        #Right Shoulder Angles
+        RSY = -1 * RS[0] + math.pi/2
+        RSR = -1 * (RS[1] + math.pi/2)
+        RSP = RS[2] - math.pi/2
+        #Right Elbow
+        REP = RE[1]
+        #Left Shoulder Angles
+        LSY = LS[0] - math.pi/2
+        LSR = -1 * (LS[1] - math.pi/2)
+        LSP = -1 * (LS[2] - math.pi/2)
+        #Left Elbow
+        LEP = -1*LE[1]
+
+
+        #REP, LEP, RSY, LSY, RSR, LSR, RSP, LSP = self.smooth([REP, LEP, RSY, LSY, RSR, LSR, RSP, LSP])
+        
+        print [REP, LEP, RSY, LSY, RSR, LSR, RSP, LSP]
+
+        return [REP, LEP, RSY, LSY, RSR, LSR, RSP, LSP]
+
+
+    def smooth(self, angleList):
+        '''
+        Smooth out all of the angles and return the list of them 
+        '''
+        updatedAngles = map(doSmoothing, angleList, self.alphas, self.smoothed)
+        self.smoothed = updatedAngles
+        return tuple(updatedAngles)
+
+
+
+def doSmoothing(newVal, alpha, oldVal):
+    '''
+    Perform exponential smoothing and some simple flitering
+    '''
+    if math.fabs(newVal) >= math.pi:
+        return oldVal
+
+    return alpha * newVal + (1-alpha) * oldVal
+
 
 '''
 Calculate the theta between two vectors a, and b. 
@@ -47,6 +133,18 @@ def getPointFromJoint(joint):
     posList.append(joint['pos']['z'])
     return np.array(posList)
 
+'''
+Return a numpy vector of the coordinates for
+the joint struture passed to to
+'''
+def getRotFromJoint(joint):
+    rotList = []
+    rotList.append(joint['rot']['w'])
+    rotList.append(joint['rot']['x'])
+    rotList.append(joint['rot']['y'])
+    rotList.append(joint['rot']['z'])
+
+    return np.array(rotList)
 
 
 def normalizeVector(vec):
@@ -165,63 +263,30 @@ def generateAngles(jsonString):
     #Get the joint list
     jointList = jointDict["Joints"]
 
-    #get the joints
-    RS = getPointFromJoint(jointList[9])
-    NK = getPointFromJoint(jointList[1])
-    LS = getPointFromJoint(jointList[3])
-    TS = getPointFromJoint(jointList[2])
-    RH = getPointFromJoint(jointList[12])
-    LH = getPointFromJoint(jointList[6])
+    #get the joint rotations
+    RS = euler_from_quaternion(getRotFromJoint(jointList[9]))
+    LS = euler_from_quaternion(getRotFromJoint(jointList[3]))
+    RE = euler_from_quaternion(getRotFromJoint(jointList[10]))
+    LE = euler_from_quaternion(getRotFromJoint(jointList[4]))
 
-    #Get more joints
-    LE = getPointFromJoint(jointList[4])
-    RE = getPointFromJoint(jointList[10]) 
-    LW = getPointFromJoint(jointList[5])
-    RW = getPointFromJoint(jointList[11]) 
-    
-    #Create the matrix
-    torso = np.array([RS, NK, LS, TS, RH, LH])
+    RSY = RE[1]
+    RSP = RS[1]
+    RSR = -1 * RS[2]
+    REP = RE[2] #Rotation about Y
+    LSY = LE[1]
+    LSP = LS[1]
+    LSR = LS[2] #Rotation about Z
+    LEP = LE[2]
 
-    #Create the pca object and fit it to the torso to get the coordinate frame. 
-    pca = PCA(n_components=2)
-    pca.fit(torso)
-
-
-    #Create the torso frame
-    # {u, r, t} is the torso frame
-    u = pca.components_[0]
-    r = pca.components_[1]
-    t = np.cross(u, r)
-
-    frame = np.array([u, r, t])
-
-
-
-    LSR, LSP = getFirstDegreeAngles(frame, LS, LE)
-
-    RSR, RSP = getFirstDegreeAngles(frame, RS, RE)
-
-    LEP, LSY = getSecondDegreeAngles(frame, LS, LE, LH)
-
-    REP, RSY = getSecondDegreeAngles(frame, RS, RE, RH)
-
-    #Perform offsets here. 
-
-    RSP = -1 * (RSP - 3.14)
-    LSP = -1 * LSP
-
-    RSR = -1 * RSR
-
-    REP = -1 * ((math.pi / 2.0) - REP)
-    LEP = -1 * ((math.pi / 2.0) - LEP)
-
-
+    print [REP, LEP, RSY, LSY, RSR, LSR, RSP, LSP]
 
 
     return [REP, LEP, RSY, LSY, RSR, LSR, RSP, LSP]
+
+
+
+
  
-
-
 
 if __name__ == '__main__':
     #If ran alone try to convert a file containing json strings

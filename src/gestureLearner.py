@@ -21,26 +21,15 @@ import tf
 import signal
 import numpy as np
 from jsonConverter import jsonMaker, jointLineMaker
-from AngleCalculator import generateAngles
+from AngleCalculator import generateEulerAngles
 import time
 
-BASE_FRAME = '/openni_depth_frame'
+BASE_FRAMES = ['/openni_depth_frame', '/left_shoulder_', '/openni_depth_frame', 'right_shoulder_']
 FRAMES = [
-        'head',
-        'neck',
-        'torso',
         'left_shoulder',
         'left_elbow',
-        'left_hand',
-        'left_hip',
-        'left_knee',
-        'left_foot',
         'right_shoulder',
         'right_elbow',
-        'right_hand',
-        'right_hip',
-        'right_knee',
-        'right_foot',
         ]
 LAST = rospy.Duration()
 
@@ -56,6 +45,8 @@ class Kinect:
         self.listener = tf.TransformListener()
         self.user = user
 
+        BASE_FRAMES[1] += str(self.user)
+        BASE_FRAMES[3] += str(self.user)
     
     def get_posture(self):
         """Returns a list of frames constituted by a translation matrix
@@ -66,13 +57,13 @@ class Kinect:
         """
         try:
             frames = []
-            for frame in FRAMES:
+            for index in range(0,len(FRAMES)):
                 #Block until there are enough tf frames in the buffer
-                self.listener.waitForTransform(BASE_FRAME, "/%s_%d" % (frame, self.user), rospy.Time(0), rospy.Duration(4.0))
+                self.listener.waitForTransform(BASE_FRAMES[index], "/%s_%d" % (FRAMES[index], self.user), rospy.Time(0), rospy.Duration(4.0))
 
-                trans, rot = self.listener.lookupTransform(BASE_FRAME,"/%s_%d" % (frame, self.user), rospy.Time(0))
+                trans, rot = self.listener.lookupTransform(BASE_FRAMES[index],"/%s_%d" % (FRAMES[index], self.user), rospy.Time(0))
 
-                frames.append((frame, trans, rot))
+                frames.append(rot)
             return frames
         except (tf.LookupException):
             print "User: " + str(self.user) + " not in frame"
@@ -80,19 +71,20 @@ class Kinect:
             print "Connectivity Exception"
         except (tf.ExtrapolationException):
             print "ExtrapolationException"
-        except (tf.Exception):
+        except tf.Exception, e:
+            print e
             print "You done goofed"
 
 class DataRecorder:
-    def __init__(self, angleFile="./data/angle.txt", positionFile="./data/pos.txt", dataFile="./data/data.txt"):
+    def __init__(self, angleFile="./data/angle.txt", positionFile="./data/pos.txt", dataFile="./data/data2.txt"):
         #Wait for the service we want before we publish
         #[REB LEB RSY LSY RSR LSR RSP LSP]
         # Each of these arrays are values for each joint that it matches up with
         #Used for smoothing
         #Getting the angles and publishing to hubo
         self.kinect = Kinect()
-        self.angles = open(angleFile, 'w')
-        self.position = open(positionFile, 'w')
+        # self.angles = open(angleFile, 'w')
+        # self.position = open(positionFile, 'w')
         self.data = open(dataFile, 'w')
     
 
@@ -105,28 +97,27 @@ class DataRecorder:
             self.recordJointAngles()
             return None
 
-        angleString = jsonMaker((values,))
         #Make them into angles
-        angles = generateAngles(angleString)
+        angles = generateEulerAngles(values)
 
-        #Parse angles
-        stringNums = ""
-        for angle in angles:
-            stringNums += str(angle) + " "
+        # #Parse angles
+        # stringNums = ""
+        # for angle in angles:
+        #     stringNums += str(angle) + " "
 
-        stringNums = stringNums[:-1]
+        # stringNums = stringNums[:-1]
 
-        posString = jointLineMaker((values,))
+        # posString = jointLineMaker((values,))
 
         self.angles.write(stringNums + "\n")
         #self.position.write(posString + "\n")
-        self.data.write(angleString + "\n")
+        self.data.write(str(values) + "\n")
 
 
     def cleanUp(self):
         #Close the file 
-        self.angles.close()
-        self.position.close()
+        # self.angles.close()
+        # self.position.close()
         self.data.close()
 
 
