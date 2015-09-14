@@ -25,7 +25,7 @@ class AngleMaker:
             self.alphas = angleAlphas
         else:
             #Use the default alpha values
-            self.alphas = [.5, .5, .5, .5, .5, .5, .5, .5] 
+            self.alphas = [.5, .5, .5, .5, .5, .5, .1, .1] 
         
         self.smoothed = [0, 0, 0, 0, 0, 0, 0, 0]
 
@@ -87,7 +87,7 @@ def doSmoothing(newVal, alpha, oldVal):
     '''
     Perform exponential smoothing and some simple flitering
     '''
-    if math.fabs(newVal) >= math.pi:
+    if math.fabs(newVal) > math.pi:
         return oldVal
 
     return alpha * newVal + (1-alpha) * oldVal
