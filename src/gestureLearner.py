@@ -9,116 +9,67 @@ is just the foundation of some potential work I might look into.
 Author: Ryan
 ITERO's original project used the Kinect V2 that only ran on windows. This
 uses a regular kinect or asus xtion pro and runs entirely on linux.  
-
-The kinect class was authored by: omangin
 """
 
-
-import roslib
-roslib.load_manifest('gestureLearner')
-import rospy
-import tf
 import signal
 import numpy as np
-from jsonConverter import jsonMaker, jointLineMaker
-from AngleCalculator import generateEulerAngles
+import AngleCalculator 
 import time
 
-BASE_FRAMES = ['/openni_depth_frame', '/left_shoulder_', '/openni_depth_frame', 'right_shoulder_']
-FRAMES = [
-        'left_shoulder',
-        'left_elbow',
-        'right_shoulder',
-        'right_elbow',
-        ]
-LAST = rospy.Duration()
+import socket
+TCP_IP = "192.168.0.110"
+TCP_PORT = 7238
+
+
+sock = socket.socket(socket.AF_INET, #Internet 
+                     socket.SOCK_STREAM) #TCP
+sock.bind((TCP_IP, TCP_PORT))
 
 continuing = True
 
 
+class gestureMaker:
+    def __init__(self, outputFile="./data/out.txt"):
+        #The output script that this will make
+        self.output = open(outputFile, 'w')
+        #Create the angle maker object to calculate the angles from the kinect data
+        self.angleMaker = AngleMaker()
 
-
-class Kinect:
-
-    def __init__(self, user=1):
-        rospy.init_node("Itero", anonymous=True)
-        self.listener = tf.TransformListener()
-        self.user = user
-
-        BASE_FRAMES[1] += str(self.user)
-        BASE_FRAMES[3] += str(self.user)
-    
-    def get_posture(self):
-        """Returns a list of frames constituted by a translation matrix
-        and a rotation matrix.
-
-        Raises IndexError when a frame can't be found (which happens if
-        the requested user is not calibrated).
-        """
-        try:
-            frames = []
-            for index in range(0,len(FRAMES)):
-                #Block until there are enough tf frames in the buffer
-                self.listener.waitForTransform(BASE_FRAMES[index], "/%s_%d" % (FRAMES[index], self.user), rospy.Time(0), rospy.Duration(4.0))
-
-                trans, rot = self.listener.lookupTransform(BASE_FRAMES[index],"/%s_%d" % (FRAMES[index], self.user), rospy.Time(0))
-
-                frames.append(rot)
-            return frames
-        except (tf.LookupException):
-            print "User: " + str(self.user) + " not in frame"
-        except (tf.ConnectivityException):
-            print "Connectivity Exception"
-        except (tf.ExtrapolationException):
-            print "ExtrapolationException"
-        except tf.Exception, e:
-            print e
-            print "You done goofed"
-
-class DataRecorder:
-    def __init__(self, angleFile="./data/angle.txt", positionFile="./data/pos.txt", dataFile="./data/data2.txt"):
-        #Wait for the service we want before we publish
-        #[REB LEB RSY LSY RSR LSR RSP LSP]
-        # Each of these arrays are values for each joint that it matches up with
-        #Used for smoothing
-        #Getting the angles and publishing to hubo
-        self.kinect = Kinect()
-        # self.angles = open(angleFile, 'w')
-        # self.position = open(positionFile, 'w')
-        self.data = open(dataFile, 'w')
+        #Set up for the output script
+        self.output.write("#!/usr/bin/env python \n")
+        self.output.write("from Maestor import maestor\n\n")
+        self.output.write("if __name__ == \'__main__\':\n")
+        self.output.write("    robot = maestor()\n\n")
     
 
     def recordJointAngles(self):
 
-        #Get the values from the kinect
-        values = self.kinect.get_posture()
-        if values is None:
-            #recursivly try again
-            self.recordJointAngles()
-            return None
+        # #Get the values from the kinect
+        # values = self.kinect.get_posture()
+        # if values is None:
+        #     #recursivly try again
+        #     self.recordJointAngles()
+        #     return None
 
-        #Make them into angles
-        angles = generateEulerAngles(values)
+        #Get values from the windows 
 
-        # #Parse angles
-        # stringNums = ""
-        # for angle in angles:
-        #     stringNums += str(angle) + " "
+        #Getting data from the socket:
+        line = conn.recv(4096) #buffer size is 4096 bytes
+        if not line:
+            return # No line, do nothing
+        print "Read a good line"
 
-        # stringNums = stringNums[:-1]
+        #Uses matt's code
+        stringNums = calculateAngles(line)
 
-        # posString = jointLineMaker((values,))
 
-        self.angles.write(stringNums + "\n")
-        #self.position.write(posString + "\n")
-        self.data.write(str(values) + "\n")
+        self.output.write("    robot.setProperties(\"REP LEP RSY LSY RSR LSR RSP LSP\", \"position position position position position position position position\", \"" + stringNums + "\")\n")
+        self.output.write("    robot.waitForJointList([\"REP\", \"LEP\", \"RSY\", \"LSY\", \"RSR\", \"LSR\", \"RSP\", \"LSP\"])\n")
 
 
     def cleanUp(self):
         #Close the file 
-        # self.angles.close()
-        # self.position.close()
-        self.data.close()
+        self.output.close()
 
 
 
@@ -129,10 +80,17 @@ def endDemo(signal, frame):
 def main():
     global continuing
     signal.signal(signal.SIGINT, endDemo)
-    logger = DataRecorder()
+    #Create a recorder and record a line of positions each time a key is pressed.
+    recorder = gestureMaker()
     while continuing:
-        logger.recordJointAngles()
-    logger.cleanUp()
+        response = raw_input("Press any key to continue or q to quit")
+        if response == "q":
+            continuing = False
+            continue
+        #Add another line
+        recorder.recordJointAngles()
+
+    recorder.cleanUp()
 
 
 if __name__ == '__main__':
